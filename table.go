@@ -1,6 +1,9 @@
 package dht
 
-import "errors"
+import (
+	"errors"
+	"log"
+)
 
 // Node table, with indexes on distance from root ID to bucket, and node addr.
 type table struct {
@@ -33,6 +36,7 @@ func (tbl *table) dropNode(n *node) {
 		panic("expected node in bucket")
 	}
 	delete(b.nodes, n)
+	log.Printf("dropNode id=%x addr=%s \n", n.id, as)
 }
 
 func (tbl *table) bucketForID(id int160) *bucket {
@@ -73,19 +77,32 @@ func (tbl *table) getNode(addr Addr, id int160) *node {
 }
 
 func (tbl *table) closestNodes(k int, target int160, filter func(*node) bool) (ret []*node) {
-	for bi := func() int {
+	bi := func() int {
 		if target == tbl.rootID {
 			return len(tbl.buckets) - 1
 		} else {
 			return tbl.bucketIndex(target)
 		}
-	}(); bi >= 0 && len(ret) < k; bi-- {
+	}()
+	closetIndex := bi
+
+	for ; bi >= 0 && len(ret) < k; bi-- {
 		for n := range tbl.buckets[bi].nodes {
 			if filter(n) {
 				ret = append(ret, n)
 			}
 		}
 	}
+
+	//为了防止节点过少并且节点距离过远,无法正常返回正确的node //2018.05.17 liuwei
+	for bi := len(tbl.buckets) - 1; bi > closetIndex && len(ret) < k; bi-- {
+		for n := range tbl.buckets[bi].nodes {
+			if filter(n) {
+				ret = append(ret, n)
+			}
+		}
+	}
+
 	// TODO: Keep only the closest.
 	if len(ret) > k {
 		ret = ret[:k]
@@ -109,6 +126,7 @@ func (tbl *table) addNode(n *node) error {
 		tbl.addrs = make(map[string]map[int160]struct{}, 160*tbl.k)
 	}
 	as := n.addr.String()
+	log.Printf("addNode id=%x addr=%s \n", n.id, as)
 	if tbl.addrs[as] == nil {
 		tbl.addrs[as] = make(map[int160]struct{}, 1)
 	}

@@ -261,6 +261,11 @@ func (s *Server) serve() error {
 			continue
 		}
 		s.processPacket(b[:n], NewAddr(addr.(*net.UDPAddr)))
+
+		s.mu.Lock()
+		s.dropBadNodes() //20180517 liuwei
+		s.mu.Unlock()
+		//fmt.Println("------------------serve")
 	}
 }
 
@@ -550,6 +555,7 @@ func (s *Server) query(addr Addr, q string, a *krpc.MsgArgs, callback func(krpc.
 		Q: q,
 		A: a,
 	}
+	//log.Println("------------------------>>", m, "\n\n")
 	// BEP 43. Outgoing queries from passive nodes should contain "ro":1 in
 	// the top level dictionary.
 	if s.config.Passive {
@@ -567,6 +573,7 @@ func (s *Server) query(addr Addr, q string, a *krpc.MsgArgs, callback func(krpc.
 			return s.writeToNode(b, addr)
 		},
 		onResponse: func(m krpc.Msg) {
+			//log.Println("<<+++++++++++++++++++++++++++", m, "\n\n")
 			go callback(m, nil)
 			go s.deleteTransactionUnlocked(t)
 		},
@@ -605,7 +612,21 @@ func (s *Server) query(addr Addr, q string, a *krpc.MsgArgs, callback func(krpc.
 	t.startResendTimer()
 	t.mu.Unlock()
 	s.addTransaction(t)
+	//fmt.Println("------------------query")
+	s.dropBadNodes() //20180517 liuwei 此处不加锁, 否则死锁
 	return nil
+}
+
+//Drop bad nodes
+func (s *Server) dropBadNodes() {
+	for _, b := range s.table.buckets {
+		b.EachNode(func(n *node) bool {
+			if s.nodeIsBad(n) || n.consecutiveFailures >= 3 { //nodeIsBad内部对consecutiveFailures做了处理
+				s.table.dropNode(n)
+			}
+			return true
+		})
+	}
 }
 
 // Sends a ping query to the address given.

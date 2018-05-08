@@ -2,6 +2,7 @@ package krpc
 
 import (
 	"fmt"
+	"strconv"
 )
 
 // Msg represents messages that nodes in the network send to each other as specified by the protocol.
@@ -54,8 +55,38 @@ type Return struct {
 
 var _ fmt.Stringer = Msg{}
 
+//liuwei
+func (r MsgArgs) String() string {
+	s := " id: " + fmt.Sprintf("%x", r.ID)
+	s += " target: " + fmt.Sprintf("%x", r.Target)
+	s += " token: " + r.Token
+	s += " port: " + strconv.Itoa(r.Port)
+	s += " impliedPort: " + strconv.FormatBool(r.ImpliedPort)
+	s += " infohash: _" + fmt.Sprintf("%x", r.InfoHash) + "_"
+	return s
+}
+func (r Return) String() string {
+	s := " id: " + fmt.Sprintf("%x", r.ID)
+	s += " token: " + r.Token
+	s += " nodes4: "
+	for _, v := range r.Nodes {
+		s += fmt.Sprintf("%x", v.ID) + " " + v.Addr.String() + " "
+	}
+	s += " nodes6: "
+	for _, v := range r.Nodes6 {
+		s += fmt.Sprintf("%x", v.ID) + " " + v.Addr.String() + " "
+	}
+	s += " values: "
+	for _, v := range r.Values {
+		s += v.String() + " "
+	}
+	return s
+}
+
 func (m Msg) String() string {
-	return fmt.Sprintf("%#v", m)
+	//return fmt.Sprintf("%#v", m)
+	str := fmt.Sprintf("%#v ip=%s (ARGS) = %v\n (RETURN) = %v\n", m, m.IP.String(), m.A, m.R) //liuwei
+	return str
 }
 
 // The node ID of the source of this Msg. Returns nil if it isn't present.
