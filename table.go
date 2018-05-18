@@ -36,7 +36,7 @@ func (tbl *table) dropNode(n *node) {
 		panic("expected node in bucket")
 	}
 	delete(b.nodes, n)
-	log.Printf("dropNode id=%x addr=%s \n", n.id, as)
+	log.Printf("DropNode id=%x addr=%s \n", n.id, as)
 }
 
 func (tbl *table) bucketForID(id int160) *bucket {
@@ -94,7 +94,7 @@ func (tbl *table) closestNodes(k int, target int160, filter func(*node) bool) (r
 		}
 	}
 
-	//为了防止节点过少并且节点距离过远,无法正常返回正确的node //2018.05.17 liuwei
+	//为了防止节点过少并且节点距离过远,无法正常返回正确的node //20180517 liuwei
 	for bi := len(tbl.buckets) - 1; bi > closetIndex && len(ret) < k; bi-- {
 		for n := range tbl.buckets[bi].nodes {
 			if filter(n) {
@@ -126,10 +126,11 @@ func (tbl *table) addNode(n *node) error {
 		tbl.addrs = make(map[string]map[int160]struct{}, 160*tbl.k)
 	}
 	as := n.addr.String()
-	log.Printf("addNode id=%x addr=%s \n", n.id, as)
 	if tbl.addrs[as] == nil {
 		tbl.addrs[as] = make(map[int160]struct{}, 1)
 	}
 	tbl.addrs[as][n.id] = struct{}{}
+
+	log.Printf("AddNode id=%x addr=%s \n", n.id, as)
 	return nil
 }

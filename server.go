@@ -263,9 +263,8 @@ func (s *Server) serve() error {
 		s.processPacket(b[:n], NewAddr(addr.(*net.UDPAddr)))
 
 		s.mu.Lock()
-		s.dropBadNodes() //20180517 liuwei
+		s.dropBadNodes() //20180517 liuwei 删除坏的节点
 		s.mu.Unlock()
-		//fmt.Println("------------------serve")
 	}
 }
 
@@ -612,7 +611,6 @@ func (s *Server) query(addr Addr, q string, a *krpc.MsgArgs, callback func(krpc.
 	t.startResendTimer()
 	t.mu.Unlock()
 	s.addTransaction(t)
-	//fmt.Println("------------------query")
 	s.dropBadNodes() //20180517 liuwei 此处不加锁, 否则死锁
 	return nil
 }
@@ -691,6 +689,25 @@ func (s *Server) findNode(addr Addr, targetID int160, callback func(krpc.Msg, er
 type TraversalStats struct {
 	NumAddrsTried int
 	NumResponses  int
+}
+
+// Ping table all nodes		//20180518 liuwei
+func (s *Server) PingNodes() (ts TraversalStats, err error) {
+	var outstanding sync.WaitGroup
+	s.table.forNodes(func(n *node) bool {
+		outstanding.Add(1)
+		ts.NumAddrsTried++
+		s.Ping(n.addr.UDPAddr(), func(m krpc.Msg, err error) {
+			defer outstanding.Done()
+			if err != nil {
+				return
+			}
+			ts.NumResponses++
+		})
+		return true
+	})
+	outstanding.Wait()
+	return
 }
 
 // Populates the node table.
